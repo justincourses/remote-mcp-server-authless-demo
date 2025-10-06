@@ -6,6 +6,7 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "remote-mcp-server-authless-demo",
 	"main": "src/index.ts",
+	"account_id": "ebac04441f46c534986d969580bc7239",
 	"compatibility_date": "2025-03-10",
 	"compatibility_flags": ["nodejs_compat"],
 	"migrations": [
@@ -21,6 +22,23 @@
 				"name": "MCP_OBJECT"
 			}
 		]
+	},
+	"r2_buckets": [
+		{
+			"binding": "R2_BUCKET",
+			"bucket_name": "course-demo",
+			"preview_bucket_name": "course-demo"
+		}
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "course-demo",
+			"database_id": "135823c9-352e-4303-8b74-bcd1b11578d3"
+		}
+	],
+	"ai": {
+		"binding": "AI"
 	},
 	"observability": {
 		"enabled": true
