@@ -58,6 +58,52 @@ export default {
 	fetch(request: Request, env: Env, ctx: ExecutionContext) {
 		const url = new URL(request.url);
 
+		// Health check endpoint
+		if (url.pathname === "/") {
+			return new Response("OK - System is healthy", {
+				status: 200,
+				headers: { "Content-Type": "text/plain" }
+			});
+		}
+
+		// API endpoint to list all endpoints
+		if (url.pathname === "/api") {
+			const endpoints = {
+				endpoints: [
+					{
+						path: "/",
+						method: "GET",
+						description: "Health check - returns system health status"
+					},
+					{
+						path: "/api",
+						method: "GET",
+						description: "Lists all available endpoints"
+					},
+					{
+						path: "/sse",
+						method: "GET",
+						description: "Server-Sent Events endpoint for MCP"
+					},
+					{
+						path: "/sse/message",
+						method: "GET",
+						description: "SSE message endpoint for MCP"
+					},
+					{
+						path: "/mcp",
+						method: "POST",
+						description: "MCP server endpoint with calculator tools"
+					}
+				]
+			};
+
+			return new Response(JSON.stringify(endpoints, null, 2), {
+				status: 200,
+				headers: { "Content-Type": "application/json" }
+			});
+		}
+
 		if (url.pathname === "/sse" || url.pathname === "/sse/message") {
 			return MyMCP.serveSSE("/sse").fetch(request, env, ctx);
 		}
