@@ -1,3 +1,4 @@
+import { Hono } from "hono";
 import { McpAgent } from "agents/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
@@ -54,64 +55,63 @@ export class MyMCP extends McpAgent {
 	}
 }
 
-export default {
-	fetch(request: Request, env: Env, ctx: ExecutionContext) {
-		const url = new URL(request.url);
+// Create Hono app
+const app = new Hono();
 
-		// Health check endpoint
-		if (url.pathname === "/") {
-			return new Response("OK - System is healthy", {
-				status: 200,
-				headers: { "Content-Type": "text/plain" }
-			});
-		}
+// Health check endpoint
+app.get("/", (c) => {
+	return c.text("OK - System is healthy");
+});
 
-		// API endpoint to list all endpoints
-		if (url.pathname === "/api") {
-			const endpoints = {
-				endpoints: [
-					{
-						path: "/",
-						method: "GET",
-						description: "Health check - returns system health status"
-					},
-					{
-						path: "/api",
-						method: "GET",
-						description: "Lists all available endpoints"
-					},
-					{
-						path: "/sse",
-						method: "GET",
-						description: "Server-Sent Events endpoint for MCP"
-					},
-					{
-						path: "/sse/message",
-						method: "GET",
-						description: "SSE message endpoint for MCP"
-					},
-					{
-						path: "/mcp",
-						method: "POST",
-						description: "MCP server endpoint with calculator tools"
-					}
-				]
-			};
+// API endpoint to list all endpoints
+app.get("/api", (c) => {
+	const endpoints = {
+		endpoints: [
+			{
+				path: "/",
+				method: "GET",
+				description: "Health check - returns system health status"
+			},
+			{
+				path: "/api",
+				method: "GET",
+				description: "Lists all available endpoints"
+			},
+			{
+				path: "/sse",
+				method: "GET",
+				description: "Server-Sent Events endpoint for MCP"
+			},
+			{
+				path: "/sse/message",
+				method: "GET",
+				description: "SSE message endpoint for MCP"
+			},
+			{
+				path: "/mcp",
+				method: "POST",
+				description: "MCP server endpoint with calculator tools"
+			}
+		]
+	};
 
-			return new Response(JSON.stringify(endpoints, null, 2), {
-				status: 200,
-				headers: { "Content-Type": "application/json" }
-			});
-		}
+	return c.json(endpoints);
+});
 
-		if (url.pathname === "/sse" || url.pathname === "/sse/message") {
-			return MyMCP.serveSSE("/sse").fetch(request, env, ctx);
-		}
+// MCP SSE endpoints - preserve original functionality
+app.get("/sse/*", async (c) => {
+	const request = c.req.raw;
+	const env = c.env;
+	const ctx = c.executionCtx;
+	return MyMCP.serveSSE("/sse").fetch(request, env, ctx);
+});
 
-		if (url.pathname === "/mcp") {
-			return MyMCP.serve("/mcp").fetch(request, env, ctx);
-		}
+// MCP server endpoint - preserve original functionality
+app.post("/mcp", async (c) => {
+	const request = c.req.raw;
+	const env = c.env;
+	const ctx = c.executionCtx;
+	return MyMCP.serve("/mcp").fetch(request, env, ctx);
+});
 
-		return new Response("Not found", { status: 404 });
-	},
-};
+export default app;
