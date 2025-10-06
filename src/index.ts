@@ -140,16 +140,28 @@ app.post("/api/ask", async (c) => {
 
 		// 1. Call AI service using Cloudflare AI
 		const ai = c.env.AI;
-		const aiResponse = await ai.run("@cf/meta/llama-3.1-8b-instruct", {
-			messages: [
-				{
-					role: "user",
-					content: content
-				}
-			]
-		}) as any;
+		const aiModel = c.env.AI_MODEL;
 
-		const responseText = aiResponse.response || (aiResponse.result?.response) || JSON.stringify(aiResponse);
+		// Call @cf/openai/gpt-oss-20b with correct format
+		const aiResponse = await ai.run(aiModel as any, {
+			instructions: 'You are a helpful assistant.',
+			input: content
+		} as any);
+
+		// Extract response text - handle different response formats
+		let responseText;
+		if (typeof aiResponse === 'string') {
+			responseText = aiResponse;
+		} else if (aiResponse && typeof aiResponse === 'object') {
+			responseText = aiResponse.response ||
+			             aiResponse.result?.response ||
+			             aiResponse.output ||
+			             aiResponse.answer ||
+			             aiResponse.text ||
+			             JSON.stringify(aiResponse);
+		} else {
+			responseText = String(aiResponse);
+		}
 
 		// 2. Create log entry for R2
 		const logEntry = {
@@ -161,7 +173,7 @@ app.post("/api/ask", async (c) => {
 				ip: c.req.header("CF-Connecting-IP") || "unknown"
 			},
 			response: {
-				aiModel: "@cf/meta/llama-3.1-8b-instruct",
+				aiModel: aiModel,
 				content: responseText,
 				responseTime: new Date().toISOString()
 			}
@@ -178,23 +190,26 @@ app.post("/api/ask", async (c) => {
 		// 4. Store conversation in D1 database
 		const db = drizzle(c.env.DB);
 
+		// Ensure all values are strings for D1
 		const conversationRecord = await db.insert(conversationTable).values({
-			sessionId,
-			userQuestion: content,
-			aiResponse: responseText,
-			logFileKey: logFileName
+			sessionId: String(sessionId),
+			userQuestion: String(content),
+			aiResponse: String(responseText), // Ensure it's a string
+			logFileKey: String(logFileName)
 		}).returning();
 
-		// 5. Return response
+		// 5. Return response with raw AI response
 		return c.json({
 			status: "success",
 			sessionId,
 			question: content,
 			answer: responseText,
+			rawAiResponse: aiResponse, // Include the raw upstream response
 			metadata: {
 				timestamp,
 				logStored: logFileName,
-				dbRecordId: conversationRecord[0]?.id
+				dbRecordId: conversationRecord[0]?.id,
+				aiModel: aiModel
 			}
 		});
 
@@ -266,15 +281,18 @@ app.get("/test/d1", async (c) => {
 app.get("/test/ai", async (c) => {
 	try {
 		const ai = c.env.AI;
+		const aiModel = c.env.AI_MODEL;
 
-		// Test with a simple text generation
-		const response = await ai.run("@cf/meta/llama-2-7b-chat-int8", {
-			prompt: "Hello! Please respond with a simple greeting."
-		});
+		// Test with a simple text generation using the configured model
+		const response = await ai.run(aiModel as any, {
+			instructions: 'You are a helpful assistant.',
+			input: "Hello! Please respond with a simple greeting."
+		} as any);
 
 		return c.json({
 			status: "success",
 			message: "AI service is working",
+			aiModel: aiModel,
 			aiResponse: response
 		});
 	} catch (error) {

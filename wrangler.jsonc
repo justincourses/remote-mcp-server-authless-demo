@@ -40,6 +40,9 @@
 	"ai": {
 		"binding": "AI"
 	},
+	"vars": {
+		"AI_MODEL": "@cf/openai/gpt-oss-20b"
+	},
 	"observability": {
 		"enabled": true
 	}
