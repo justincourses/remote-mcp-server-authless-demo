@@ -304,20 +304,22 @@ app.get("/test/ai", async (c) => {
 	}
 });
 
-// MCP SSE endpoints - preserve original functionality
-app.get("/sse/*", async (c) => {
-	const request = c.req.raw;
-	const env = c.env;
-	const ctx = c.executionCtx;
-	return MyMCP.serveSSE("/sse").fetch(request, env, ctx);
-});
+// Export default handler with MCP routes
+export default {
+	fetch(request: Request, env: Env, ctx: ExecutionContext) {
+		const url = new URL(request.url);
 
-// MCP server endpoint - preserve original functionality
-app.post("/mcp", async (c) => {
-	const request = c.req.raw;
-	const env = c.env;
-	const ctx = c.executionCtx;
-	return MyMCP.serve("/mcp").fetch(request, env, ctx);
-});
+		// Handle MCP SSE endpoints
+		if (url.pathname === "/sse" || url.pathname.startsWith("/sse/")) {
+			return MyMCP.serveSSE("/sse").fetch(request, env, ctx);
+		}
 
-export default app;
+		// Handle MCP POST endpoint
+		if (url.pathname === "/mcp") {
+			return MyMCP.serve("/mcp").fetch(request, env, ctx);
+		}
+
+		// Handle all other routes through Hono app
+		return app.fetch(request, env, ctx);
+	},
+};
