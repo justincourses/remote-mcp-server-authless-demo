@@ -1,50 +1,278 @@
-# Building a Remote MCP Server on Cloudflare (Without Auth)
+# JustinCourse Knowledge Base Assistant - MCP Server
 
-This example allows you to deploy a remote MCP server that doesn't require authentication on Cloudflare Workers. 
+> 🤖 一个功能完整的 MCP 服务器，集成了 WordPress 文章搜索和 FAQ 文档管理能力
 
-## Get started: 
+这是一个部署在 Cloudflare Workers 上的 Model Context Protocol (MCP) 服务器，提供：
 
-[![Deploy to Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/ai/tree/main/demos/remote-mcp-authless)
+- 🔍 WordPress 文章智能搜索
+- 📚 FAQ 文档索引和管理
+- 🤖 AI 助手集成（通过 MCP 协议）
+- 🌐 完整的 REST API
+- ☁️ 边缘计算部署（全球低延迟）
 
-This will deploy your MCP server to a URL like: `remote-mcp-server-authless.<your-account>.workers.dev/sse`
+**Live Demo**: https://hono-mcp-demo.justincourse.site
 
-Alternatively, you can use the command line below to get the remote MCP Server created on your local machine:
+## ✨ 核心功能
+
+### 1. WordPress 集成
+- 搜索文章标题、内容、分类、标签
+- 返回格式化的文章信息和摘要
+- 支持自定义结果数量
+
+### 2. FAQ 文档管理
+- 自动索引 R2 存储中的 Markdown 文档
+- 支持 Frontmatter 元数据（标题、描述、标签）
+- D1 数据库全文搜索
+- 获取完整文档内容
+
+### 3. MCP 工具
+- `search_knowledge_base` - 智能搜索（WordPress + FAQ）
+- `search_wordpress_posts` - WordPress 文章搜索
+- `list_faq_documents` - FAQ 文档列表
+- `get_faq_document` - 获取 FAQ 完整内容
+
+### 4. REST API
+- `/api/search` - 统一搜索接口
+- `/api/wordpress/search` - WordPress 搜索
+- `/api/faq/index` - 索引 FAQ 文档
+- `/api/faq/list` - FAQ 文档列表
+- `/api/faq/:id` - FAQ 文档详情
+
+## 🚀 快速开始
+
+### 方法 1: 一键部署
+
+[![Deploy to Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/justincourses/remote-mcp-server-authless-demo)
+
+### 方法 2: 命令行部署
+
 ```bash
-npm create cloudflare@latest -- my-mcp-server --template=cloudflare/ai/demos/remote-mcp-authless
+# 克隆项目
+git clone https://github.com/justincourses/remote-mcp-server-authless-demo.git
+cd remote-mcp-server-authless-demo
+
+# 安装依赖
+npm install
+
+# 配置 wrangler.jsonc（设置你的 account_id 和资源绑定）
+
+# 创建数据库表
+wrangler d1 migrations apply course-demo --remote
+
+# 部署
+npm run deploy
 ```
 
-## Customizing your MCP Server
+### 方法 3: 使用快速开始脚本
 
-To add your own [tools](https://developers.cloudflare.com/agents/model-context-protocol/tools/) to the MCP server, define each tool inside the `init()` method of `src/index.ts` using `this.server.tool(...)`. 
+```bash
+chmod +x quick-start.sh
+./quick-start.sh
+```
 
-## Connect to Cloudflare AI Playground
+## 📖 文档
 
-You can connect to your MCP server from the Cloudflare AI Playground, which is a remote MCP client:
+- **[完整功能文档](KNOWLEDGE_BASE_FEATURES.md)** - 详细的功能说明和 API 文档
+- **[项目总结](PROJECT_SUMMARY.md)** - 技术实现和架构说明
+- **[修复说明](FIX_NOTES.md)** - SSE 404 问题的修复过程
+- **[FAQ 示例](example-faq.md)** - Markdown 文档格式示例
 
-1. Go to https://playground.ai.cloudflare.com/
-2. Enter your deployed MCP server URL (`remote-mcp-server-authless.<your-account>.workers.dev/sse`)
-3. You can now use your MCP tools directly from the playground!
+## 🧪 测试
 
-## Connect Claude Desktop to your MCP server
+### 测试 API
+```bash
+# 运行完整测试
+./test-knowledge-base.sh
 
-You can also connect to your remote MCP server from local MCP clients, by using the [mcp-remote proxy](https://www.npmjs.com/package/mcp-remote). 
+# 或手动测试
+curl "https://hono-mcp-demo.justincourse.site/api/search?keywords=mcp"
+```
 
-To connect to your MCP server from Claude Desktop, follow [Anthropic's Quickstart](https://modelcontextprotocol.io/quickstart/user) and within Claude Desktop go to Settings > Developer > Edit Config.
+### 测试 MCP 工具
+```bash
+# 使用 MCP Inspector
+npx @modelcontextprotocol/inspector
 
-Update with this configuration:
+# 连接到
+https://hono-mcp-demo.justincourse.site/sse
+```
+
+## 🔧 配置
+
+### 环境变量 (wrangler.jsonc)
+
+```json
+{
+  "name": "your-mcp-server",
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "your-database"
+  }],
+  "r2_buckets": [{
+    "binding": "R2_BUCKET",
+    "bucket_name": "your-bucket"
+  }],
+  "ai": {
+    "binding": "AI"
+  },
+  "vars": {
+    "AI_MODEL": "@cf/openai/gpt-oss-20b"
+  }
+}
+```
+
+### FAQ 文档格式
+
+将 Markdown 文件上传到 R2 的 `course-demo/justincourse-faq/` 目录：
+
+```markdown
+---
+title: 文档标题
+description: 简短描述
+tags: [标签1, 标签2]
+---
+
+# 文档内容
+
+正文...
+```
+
+然后调用索引 API：
+```bash
+curl -X POST https://your-server.workers.dev/api/faq/index
+```
+
+## 🤖 集成到 AI 客户端
+
+### Claude Desktop
+
+编辑配置文件（`~/Library/Application Support/Claude/claude_desktop_config.json`）:
 
 ```json
 {
   "mcpServers": {
-    "calculator": {
+    "justincourse-kb": {
       "command": "npx",
       "args": [
         "mcp-remote",
-        "http://localhost:8787/sse"  // or remote-mcp-server-authless.your-account.workers.dev/sse
+        "https://hono-mcp-demo.justincourse.site/sse"
       ]
     }
   }
 }
 ```
 
-Restart Claude and you should see the tools become available. 
+### Cloudflare AI Playground
+
+1. 访问 https://playground.ai.cloudflare.com/
+2. 输入 MCP 服务器 URL: `https://hono-mcp-demo.justincourse.site/sse`
+3. 开始使用！
+
+## 📊 技术栈
+
+- **Runtime**: Cloudflare Workers
+- **Framework**: Hono
+- **ORM**: Drizzle ORM
+- **Database**: Cloudflare D1 (SQLite)
+- **Storage**: Cloudflare R2
+- **AI**: Cloudflare AI Workers
+- **Protocol**: Model Context Protocol (MCP)
+
+## 🛠️ 开发
+
+```bash
+# 本地开发
+npm run dev
+
+# 类型检查
+npm run type-check
+
+# 格式化代码
+npm run format
+
+# 生成数据库迁移
+npm run db:generate
+
+# 应用迁移（本地）
+wrangler d1 migrations apply course-demo --local
+
+# 应用迁移（远程）
+wrangler d1 migrations apply course-demo --remote
+```
+
+## 📈 使用示例
+
+### 搜索知识库
+```typescript
+// 使用 MCP 工具
+{
+  "tool": "search_knowledge_base",
+  "arguments": {
+    "keywords": "如何部署到 cloudflare",
+    "sources": "all"
+  }
+}
+```
+
+### REST API 调用
+```bash
+# 统一搜索
+curl "https://your-server.workers.dev/api/search?keywords=mcp"
+
+# WordPress 搜索
+curl "https://your-server.workers.dev/api/wordpress/search?keywords=cloudflare"
+
+# FAQ 列表
+curl "https://your-server.workers.dev/api/faq/list?keywords=部署"
+
+# FAQ 详情
+curl "https://your-server.workers.dev/api/faq/1"
+```
+
+## 🎯 使用场景
+
+1. **技术支持**: AI 助手自动搜索文档回答用户问题
+2. **内容发现**: 智能推荐相关文章和文档
+3. **知识管理**: 统一管理和搜索多个知识源
+4. **教程助手**: 为学习者提供上下文相关的帮助
+
+## 🔒 安全说明
+
+此版本是无认证版本，适合：
+- 公开知识库
+- 内部网络部署
+- 开发和测试
+
+生产环境建议添加认证机制。参考 [Cloudflare Workers OAuth Provider](https://github.com/cloudflare/workers-oauth-provider)。
+
+## 📝 更新日志
+
+### v2.0.0 (2025-10-15)
+- ✨ 新增 WordPress 文章搜索
+- ✨ 新增 FAQ 文档索引和管理
+- ✨ 新增 4 个 MCP 工具
+- ✨ 新增 6 个 REST API 端点
+- 🐛 修复 SSE /sse/message 404 问题
+- 📚 完善文档和测试脚本
+
+### v1.0.0
+- 🎉 初始版本（基础计算器工具）
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+## 📄 许可证
+
+MIT License
+
+## 🔗 相关链接
+
+- [MCP 官方文档](https://modelcontextprotocol.io/)
+- [Cloudflare Workers](https://developers.cloudflare.com/workers/)
+- [Cloudflare AI](https://developers.cloudflare.com/ai/)
+- [课程网站](https://app.justincourse.com/)
+
+---
+
+**Made with ❤️ by JustinCourse**
