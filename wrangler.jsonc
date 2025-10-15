@@ -34,7 +34,8 @@
 		{
 			"binding": "DB",
 			"database_name": "course-demo",
-			"database_id": "135823c9-352e-4303-8b74-bcd1b11578d3"
+			"database_id": "135823c9-352e-4303-8b74-bcd1b11578d3",
+			"migrations_dir": "drizzle"
 		}
 	],
 	"ai": {

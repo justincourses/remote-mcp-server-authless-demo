@@ -3,14 +3,14 @@ import { McpAgent } from "agents/mcp";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { drizzle } from "drizzle-orm/d1";
-import { testTable, conversationTable } from "./db/schema";
-import { eq } from "drizzle-orm";
+import { testTable, conversationTable, faqIndexTable } from "./db/schema";
+import { eq, like, or, sql } from "drizzle-orm";
 
 // Define our MCP agent with tools
-export class MyMCP extends McpAgent {
+export class MyMCP extends McpAgent<Env> {
 	server = new McpServer({
-		name: "Authless Calculator",
-		version: "1.0.0",
+		name: "JustinCourse Knowledge Base Assistant",
+		version: "2.0.0",
 	});
 
 	async init() {
@@ -55,6 +55,300 @@ export class MyMCP extends McpAgent {
 				return { content: [{ type: "text", text: String(result) }] };
 			},
 		);
+
+		// Search WordPress posts
+		this.server.tool(
+			"search_wordpress_posts",
+			{
+				keywords: z.string().describe("Keywords to search in posts"),
+				search_in: z.enum(["title", "content", "all"]).optional().describe("Where to search: title, content, or all"),
+				per_page: z.number().optional().default(10).describe("Number of results per page (max 100)"),
+			},
+			async ({ keywords, search_in = "all", per_page = 10 }) => {
+				try {
+					const baseUrl = "https://app.justincourse.com/wp-json/wp/v2/posts";
+					const params = new URLSearchParams({
+						search: keywords,
+						per_page: String(Math.min(per_page, 100)),
+						_embed: "1", // Include featured media and other embeds
+					});
+
+					const response = await fetch(`${baseUrl}?${params.toString()}`);
+
+					if (!response.ok) {
+						return {
+							content: [{
+								type: "text",
+								text: `Error: WordPress API returned ${response.status} - ${response.statusText}`,
+							}],
+						};
+					}
+
+					const posts = await response.json() as any[];
+
+					if (posts.length === 0) {
+						return {
+							content: [{
+								type: "text",
+								text: `No posts found matching "${keywords}"`,
+							}],
+						};
+					}
+
+					// Format the results
+					const formattedResults = posts.map((post: any) => {
+						const excerpt = post.excerpt?.rendered?.replace(/<[^>]*>/g, "").trim() || "No excerpt";
+						const categories = post._embedded?.["wp:term"]?.[0]?.map((cat: any) => cat.name).join(", ") || "Uncategorized";
+						const tags = post._embedded?.["wp:term"]?.[1]?.map((tag: any) => tag.name).join(", ") || "No tags";
+
+						return `
+📄 **${post.title.rendered}**
+🔗 Link: ${post.link}
+📅 Published: ${new Date(post.date).toLocaleDateString()}
+📁 Categories: ${categories}
+🏷️  Tags: ${tags}
+📝 Excerpt: ${excerpt.substring(0, 200)}${excerpt.length > 200 ? "..." : ""}
+`;
+					}).join("\n---\n");
+
+					return {
+						content: [{
+							type: "text",
+							text: `Found ${posts.length} post(s) matching "${keywords}":\n\n${formattedResults}`,
+						}],
+					};
+				} catch (error) {
+					return {
+						content: [{
+							type: "text",
+							text: `Error searching WordPress: ${error instanceof Error ? error.message : String(error)}`,
+						}],
+					};
+				}
+			},
+		);
+
+		// List FAQ documents from D1 index
+		this.server.tool(
+			"list_faq_documents",
+			{
+				keywords: z.string().optional().describe("Keywords to filter FAQ documents"),
+				limit: z.number().optional().default(20).describe("Maximum number of results"),
+			},
+			async ({ keywords, limit = 20 }) => {
+				try {
+					const db = drizzle(this.env.DB);
+
+					let query = db.select().from(faqIndexTable);
+
+					if (keywords) {
+						const searchPattern = `%${keywords}%`;
+						query = query.where(
+							or(
+								like(faqIndexTable.title, searchPattern),
+								like(faqIndexTable.description, searchPattern),
+								like(faqIndexTable.tags, searchPattern)
+							)
+						) as any;
+					}
+
+					const results = await query.limit(limit).all();
+
+					if (results.length === 0) {
+						return {
+							content: [{
+								type: "text",
+								text: keywords
+									? `No FAQ documents found matching "${keywords}"`
+									: "No FAQ documents found in the database",
+							}],
+						};
+					}
+
+					const formattedResults = results.map((doc: any) => {
+						const tags = doc.tags ? JSON.parse(doc.tags).join(", ") : "No tags";
+						return `
+📚 **${doc.title}**
+📄 File: ${doc.fileName}
+🏷️  Tags: ${tags}
+📝 Description: ${doc.description || "No description"}
+🆔 ID: ${doc.id}
+`;
+					}).join("\n---\n");
+
+					return {
+						content: [{
+							type: "text",
+							text: `Found ${results.length} FAQ document(s)${keywords ? ` matching "${keywords}"` : ""}:\n\n${formattedResults}\n\n💡 Use get_faq_document with the ID to read the full content.`,
+						}],
+					};
+				} catch (error) {
+					return {
+						content: [{
+							type: "text",
+							text: `Error listing FAQ documents: ${error instanceof Error ? error.message : String(error)}`,
+						}],
+					};
+				}
+			},
+		);
+
+		// Get FAQ document detail from R2
+		this.server.tool(
+			"get_faq_document",
+			{
+				id: z.number().describe("The ID of the FAQ document from the index"),
+			},
+			async ({ id }) => {
+				try {
+					const db = drizzle(this.env.DB);
+
+					const result = await db.select()
+						.from(faqIndexTable)
+						.where(eq(faqIndexTable.id, id))
+						.limit(1);
+
+					if (result.length === 0) {
+						return {
+							content: [{
+								type: "text",
+								text: `Error: FAQ document with ID ${id} not found`,
+							}],
+						};
+					}
+
+					const doc = result[0];
+					const r2Object = await this.env.R2_BUCKET.get(doc.r2Key);
+
+					if (!r2Object) {
+						return {
+							content: [{
+								type: "text",
+								text: `Error: FAQ document file not found in R2 storage (${doc.r2Key})`,
+							}],
+						};
+					}
+
+					const content = await r2Object.text();
+					const tags = doc.tags ? JSON.parse(doc.tags).join(", ") : "No tags";
+					const lastIndexed = doc.lastIndexed ? new Date(doc.lastIndexed).toLocaleString() : "Never";
+
+					return {
+						content: [{
+							type: "text",
+							text: `# ${doc.title}
+
+**File:** ${doc.fileName}
+**Tags:** ${tags}
+**Description:** ${doc.description || "No description"}
+**Last Indexed:** ${lastIndexed}
+
+---
+
+${content}`,
+						}],
+					};
+				} catch (error) {
+					return {
+						content: [{
+							type: "text",
+							text: `Error retrieving FAQ document: ${error instanceof Error ? error.message : String(error)}`,
+						}],
+					};
+				}
+			},
+		);
+
+		// Smart search across both WordPress and FAQ documents
+		this.server.tool(
+			"search_knowledge_base",
+			{
+				keywords: z.string().describe("Keywords to search across WordPress posts and FAQ documents"),
+				sources: z.enum(["all", "wordpress", "faq"]).optional().default("all").describe("Which sources to search"),
+			},
+			async ({ keywords, sources = "all" }) => {
+				try {
+					let wpResults = "";
+					let faqResults = "";
+
+					// Search WordPress
+					if (sources === "all" || sources === "wordpress") {
+						const baseUrl = "https://app.justincourse.com/wp-json/wp/v2/posts";
+						const params = new URLSearchParams({
+							search: keywords,
+							per_page: "5",
+							_embed: "1",
+						});
+
+						const response = await fetch(`${baseUrl}?${params.toString()}`);
+
+						if (response.ok) {
+							const posts = await response.json() as any[];
+
+							if (posts.length > 0) {
+								wpResults = posts.map((post: any) => {
+									const excerpt = post.excerpt?.rendered?.replace(/<[^>]*>/g, "").trim() || "No excerpt";
+									return `📄 ${post.title.rendered}\n   🔗 ${post.link}\n   ${excerpt.substring(0, 150)}...`;
+								}).join("\n\n");
+							}
+						}
+					}
+
+					// Search FAQ
+					if (sources === "all" || sources === "faq") {
+						const db = drizzle(this.env.DB);
+						const searchPattern = `%${keywords}%`;
+
+						const faqDocs = await db.select()
+							.from(faqIndexTable)
+							.where(
+								or(
+									like(faqIndexTable.title, searchPattern),
+									like(faqIndexTable.description, searchPattern),
+									like(faqIndexTable.tags, searchPattern)
+								)
+							)
+							.limit(5)
+							.all();
+
+						if (faqDocs.length > 0) {
+							faqResults = faqDocs.map((doc: any) => {
+								return `📚 ${doc.title} (ID: ${doc.id})\n   ${doc.description || "No description"}`;
+							}).join("\n\n");
+						}
+					}
+
+					// Combine results
+					let output = `🔍 Search results for "${keywords}":\n\n`;
+
+					if (wpResults) {
+						output += `## WordPress Posts\n\n${wpResults}\n\n`;
+					} else if (sources === "all" || sources === "wordpress") {
+						output += `## WordPress Posts\nNo results found.\n\n`;
+					}
+
+					if (faqResults) {
+						output += `## FAQ Documents\n\n${faqResults}\n\n💡 Use get_faq_document with the ID to read full content.`;
+					} else if (sources === "all" || sources === "faq") {
+						output += `## FAQ Documents\nNo results found.`;
+					}
+
+					return {
+						content: [{
+							type: "text",
+							text: output,
+						}],
+					};
+				} catch (error) {
+					return {
+						content: [{
+							type: "text",
+							text: `Error searching knowledge base: ${error instanceof Error ? error.message : String(error)}`,
+						}],
+					};
+				}
+			},
+		);
 	}
 }
 
@@ -86,6 +380,34 @@ app.get("/api", (c) => {
 				description: "AI-powered Q&A with logging to R2 and D1"
 			},
 			{
+				path: "/api/search",
+				method: "GET",
+				description: "Search across WordPress posts and FAQ documents",
+				params: "keywords (required), limit (optional)"
+			},
+			{
+				path: "/api/wordpress/search",
+				method: "GET",
+				description: "Search WordPress posts",
+				params: "keywords (required), per_page (optional)"
+			},
+			{
+				path: "/api/faq/index",
+				method: "POST",
+				description: "Index FAQ documents from R2 storage"
+			},
+			{
+				path: "/api/faq/list",
+				method: "GET",
+				description: "List FAQ documents with optional search",
+				params: "keywords (optional), limit (optional)"
+			},
+			{
+				path: "/api/faq/:id",
+				method: "GET",
+				description: "Get FAQ document detail by ID"
+			},
+			{
 				path: "/test/r2",
 				method: "GET",
 				description: "Test R2 bucket connectivity"
@@ -113,7 +435,7 @@ app.get("/api", (c) => {
 			{
 				path: "/mcp",
 				method: "POST",
-				description: "MCP server endpoint with calculator tools"
+				description: "MCP server endpoint with knowledge base tools"
 			}
 		]
 	};
@@ -299,6 +621,339 @@ app.get("/test/ai", async (c) => {
 		return c.json({
 			status: "error",
 			message: "AI service test failed",
+			error: error instanceof Error ? error.message : String(error)
+		}, 500);
+	}
+});
+
+// ============================================
+// FAQ Management API Endpoints
+// ============================================
+
+// Index FAQ documents from R2
+app.post("/api/faq/index", async (c) => {
+	try {
+		const db = drizzle(c.env.DB);
+		const r2 = c.env.R2_BUCKET;
+		const prefix = "course-demo/justincourse-faq/";
+
+		// List all markdown files in the FAQ directory
+		const listed = await r2.list({ prefix });
+
+		let indexed = 0;
+		let errors = [];
+
+		for (const object of listed.objects) {
+			if (!object.key.endsWith('.md')) continue;
+
+			try {
+				// Get the file content
+				const file = await r2.get(object.key);
+				if (!file) continue;
+
+				const content = await file.text();
+				const fileName = object.key.split('/').pop() || object.key;
+
+				// Parse markdown frontmatter and content
+				let title = fileName.replace('.md', '');
+				let description = '';
+				let tags: string[] = [];
+
+				// Simple frontmatter parser
+				const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+				if (frontmatterMatch) {
+					const frontmatter = frontmatterMatch[1];
+					const titleMatch = frontmatter.match(/title:\s*(.+)/);
+					const descMatch = frontmatter.match(/description:\s*(.+)/);
+					const tagsMatch = frontmatter.match(/tags:\s*\[(.+)\]/);
+
+					if (titleMatch) title = titleMatch[1].trim().replace(/['"]/g, '');
+					if (descMatch) description = descMatch[1].trim().replace(/['"]/g, '');
+					if (tagsMatch) {
+						tags = tagsMatch[1].split(',').map(t => t.trim().replace(/['"]/g, ''));
+					}
+				} else {
+					// Extract title from first heading if no frontmatter
+					const headingMatch = content.match(/^#\s+(.+)$/m);
+					if (headingMatch) title = headingMatch[1].trim();
+
+					// Use first paragraph as description
+					const paragraphMatch = content.match(/\n\n(.+)\n/);
+					if (paragraphMatch) {
+						description = paragraphMatch[1].trim().substring(0, 200);
+					}
+				}
+
+				// Insert or update in database
+				await db.insert(faqIndexTable)
+					.values({
+						fileName,
+						title,
+						description,
+						tags: JSON.stringify(tags),
+						r2Key: object.key,
+						lastIndexed: new Date(),
+					})
+					.onConflictDoUpdate({
+						target: faqIndexTable.fileName,
+						set: {
+							title,
+							description,
+							tags: JSON.stringify(tags),
+							lastIndexed: new Date(),
+						},
+					});
+
+				indexed++;
+			} catch (error) {
+				errors.push({
+					file: object.key,
+					error: error instanceof Error ? error.message : String(error),
+				});
+			}
+		}
+
+		return c.json({
+			status: "success",
+			message: `Indexed ${indexed} FAQ documents`,
+			total: listed.objects.length,
+			indexed,
+			errors: errors.length > 0 ? errors : undefined,
+		});
+	} catch (error) {
+		return c.json({
+			status: "error",
+			message: "Failed to index FAQ documents",
+			error: error instanceof Error ? error.message : String(error)
+		}, 500);
+	}
+});
+
+// List FAQ documents with optional search
+app.get("/api/faq/list", async (c) => {
+	try {
+		const keywords = c.req.query("keywords");
+		const limit = Number.parseInt(c.req.query("limit") || "20");
+
+		const db = drizzle(c.env.DB);
+
+		let query = db.select().from(faqIndexTable);
+
+		if (keywords) {
+			const searchPattern = `%${keywords}%`;
+			query = query.where(
+				or(
+					like(faqIndexTable.title, searchPattern),
+					like(faqIndexTable.description, searchPattern),
+					like(faqIndexTable.tags, searchPattern)
+				)
+			) as any;
+		}
+
+		const results = await query.limit(limit).all();
+
+		return c.json({
+			status: "success",
+			count: results.length,
+			documents: results.map(doc => ({
+				id: doc.id,
+				fileName: doc.fileName,
+				title: doc.title,
+				description: doc.description,
+				tags: doc.tags ? JSON.parse(doc.tags) : [],
+				lastIndexed: doc.lastIndexed,
+			})),
+		});
+	} catch (error) {
+		return c.json({
+			status: "error",
+			message: "Failed to list FAQ documents",
+			error: error instanceof Error ? error.message : String(error)
+		}, 500);
+	}
+});
+
+// Get FAQ document detail
+app.get("/api/faq/:id", async (c) => {
+	try {
+		const id = Number.parseInt(c.req.param("id"));
+
+		if (Number.isNaN(id)) {
+			return c.json({
+				status: "error",
+				message: "Invalid document ID"
+			}, 400);
+		}
+
+		const db = drizzle(c.env.DB);
+
+		const result = await db.select()
+			.from(faqIndexTable)
+			.where(eq(faqIndexTable.id, id))
+			.limit(1);
+
+		if (result.length === 0) {
+			return c.json({
+				status: "error",
+				message: "Document not found"
+			}, 404);
+		}
+
+		const doc = result[0];
+		const r2Object = await c.env.R2_BUCKET.get(doc.r2Key);
+
+		if (!r2Object) {
+			return c.json({
+				status: "error",
+				message: "Document file not found in storage"
+			}, 404);
+		}
+
+		const content = await r2Object.text();
+
+		return c.json({
+			status: "success",
+			document: {
+				id: doc.id,
+				fileName: doc.fileName,
+				title: doc.title,
+				description: doc.description,
+				tags: doc.tags ? JSON.parse(doc.tags) : [],
+				content,
+				r2Key: doc.r2Key,
+				lastIndexed: doc.lastIndexed,
+				createdAt: doc.createdAt,
+			},
+		});
+	} catch (error) {
+		return c.json({
+			status: "error",
+			message: "Failed to retrieve document",
+			error: error instanceof Error ? error.message : String(error)
+		}, 500);
+	}
+});
+
+// Search WordPress posts
+app.get("/api/wordpress/search", async (c) => {
+	try {
+		const keywords = c.req.query("keywords");
+		const perPage = Number.parseInt(c.req.query("per_page") || "10");
+
+		if (!keywords) {
+			return c.json({
+				status: "error",
+				message: "Missing 'keywords' query parameter"
+			}, 400);
+		}
+
+		const baseUrl = "https://app.justincourse.com/wp-json/wp/v2/posts";
+		const params = new URLSearchParams({
+			search: keywords,
+			per_page: String(Math.min(perPage, 100)),
+			_embed: "1",
+		});
+
+		const response = await fetch(`${baseUrl}?${params.toString()}`);
+
+		if (!response.ok) {
+			return c.json({
+				status: "error",
+				message: `WordPress API returned ${response.status}`,
+			}, 500);
+		}
+
+		const posts = await response.json() as any[];
+
+		return c.json({
+			status: "success",
+			count: posts.length,
+			posts: posts.map(post => ({
+				id: post.id,
+				title: post.title.rendered,
+				link: post.link,
+				excerpt: post.excerpt?.rendered?.replace(/<[^>]*>/g, "").trim(),
+				date: post.date,
+				categories: post._embedded?.["wp:term"]?.[0]?.map((cat: any) => cat.name) || [],
+				tags: post._embedded?.["wp:term"]?.[1]?.map((tag: any) => tag.name) || [],
+			})),
+		});
+	} catch (error) {
+		return c.json({
+			status: "error",
+			message: "Failed to search WordPress",
+			error: error instanceof Error ? error.message : String(error)
+		}, 500);
+	}
+});
+
+// Search across both WordPress and FAQ
+app.get("/api/search", async (c) => {
+	try {
+		const keywords = c.req.query("keywords");
+
+		if (!keywords) {
+			return c.json({
+				status: "error",
+				message: "Missing 'keywords' query parameter"
+			}, 400);
+		}
+
+		// Search WordPress
+		const wpUrl = "https://app.justincourse.com/wp-json/wp/v2/posts";
+		const wpParams = new URLSearchParams({
+			search: keywords,
+			per_page: "5",
+			_embed: "1",
+		});
+
+		const wpResponse = await fetch(`${wpUrl}?${wpParams.toString()}`);
+		const wpPosts: any[] = wpResponse.ok ? await wpResponse.json() : [];
+
+		// Search FAQ
+		const db = drizzle(c.env.DB);
+		const searchPattern = `%${keywords}%`;
+
+		const faqDocs = await db.select()
+			.from(faqIndexTable)
+			.where(
+				or(
+					like(faqIndexTable.title, searchPattern),
+					like(faqIndexTable.description, searchPattern),
+					like(faqIndexTable.tags, searchPattern)
+				)
+			)
+			.limit(5)
+			.all();
+
+		return c.json({
+			status: "success",
+			keywords,
+			results: {
+				wordpress: {
+					count: wpPosts.length,
+					posts: wpPosts.map((post: any) => ({
+						id: post.id,
+						title: post.title.rendered,
+						link: post.link,
+						excerpt: post.excerpt?.rendered?.replace(/<[^>]*>/g, "").trim(),
+					})),
+				},
+				faq: {
+					count: faqDocs.length,
+					documents: faqDocs.map(doc => ({
+						id: doc.id,
+						title: doc.title,
+						description: doc.description,
+						tags: doc.tags ? JSON.parse(doc.tags) : [],
+					})),
+				},
+			},
+		});
+	} catch (error) {
+		return c.json({
+			status: "error",
+			message: "Failed to search knowledge base",
 			error: error instanceof Error ? error.message : String(error)
 		}, 500);
 	}
