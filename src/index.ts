@@ -10,10 +10,243 @@ import { eq, like, or, sql } from "drizzle-orm";
 export class MyMCP extends McpAgent<Env> {
 	server = new McpServer({
 		name: "JustinCourse Knowledge Base Assistant",
-		version: "2.0.0",
+		version: "2.1.0",
 	});
 
 	async init() {
+		// ============================================
+		// 🎯 USAGE GUIDE - Start Here for Instructions
+		// ============================================
+
+		// Help and guidance tool
+		this.server.tool(
+			"how_to_use",
+			"ℹ️ **START HERE IF UNSURE** - Get usage instructions, examples, and recommendations for using this knowledge base effectively. Shows available tools, common workflows, and tips for better results.",
+			{},
+			async () => {
+				return {
+					content: [{
+						type: "text",
+						text: `# 📚 JustinCourse Knowledge Base Assistant - Usage Guide
+
+## 🎯 Available Tools & When to Use Them
+
+### 1. 🌟 search_knowledge_base **(RECOMMENDED FIRST CHOICE)**
+**Use for:** Any question about JustinCourse, courses, or technical topics
+**Searches:** WordPress blog posts + FAQ documents simultaneously
+**Best when:** You're not sure where to look, or want comprehensive results
+**Example:** "How do I deploy to Cloudflare Workers?"
+
+### 2. 📰 search_wordpress_posts
+**Use for:** Finding technical tutorials, course announcements, and articles
+**Searches:** Only blog posts (https://app.justincourse.com)
+**Best when:** You need detailed tutorials or recent updates
+**Example:** "Show me articles about Next.js deployment"
+
+### 3. 📚 list_faq_documents
+**Use for:** Browsing frequently asked questions by topic
+**Searches:** FAQ document index (titles, descriptions, tags)
+**Best when:** Exploring topics like payment, enrollment, or prerequisites
+**Example:** Use keywords "报名" to find enrollment-related FAQs
+
+### 4. 📄 get_faq_document
+**Use for:** Reading complete FAQ answers
+**Requires:** Document ID from list_faq_documents or search_knowledge_base
+**Best when:** You found a relevant FAQ and need full details
+**Example:** get_faq_document(5) to read FAQ #5
+
+---
+
+## 💡 Recommended Workflows
+
+### For General Questions:
+1. Start with **search_knowledge_base("your question")**
+2. If FAQs are found, use **get_faq_document(id)** for details
+3. If blog posts are found, click the provided links
+
+### For Course Information:
+1. Use **list_faq_documents("课程")** to browse course FAQs
+2. Pick relevant FAQ by ID
+3. Read with **get_faq_document(id)**
+
+### For Technical Tutorials:
+1. Use **search_wordpress_posts("technology name")**
+2. Review titles, categories, and publish dates
+3. Click blog post links for full articles
+
+---
+
+## 🏷️ Available Topics
+
+**WordPress Categories:**
+- Cloudflare Workers
+- Web Development
+- TypeScript / JavaScript
+- MCP (Model Context Protocol)
+- Next.js, React
+- Database (D1, R2)
+
+**FAQ Topics:**
+- 课程报名 (Course Enrollment)
+- 付费方式 (Payment Methods)
+- 学习要求 (Prerequisites)
+- 课程形式 (Course Format)
+- 技术支持 (Technical Support)
+
+---
+
+## 💬 Example Queries
+
+**Question:** "如何支付课程费用？"
+→ Use: search_knowledge_base("支付") or list_faq_documents("付费")
+
+**Question:** "Show me tutorials about Cloudflare D1"
+→ Use: search_wordpress_posts("cloudflare d1")
+
+**Question:** "What are the course prerequisites?"
+→ Use: list_faq_documents("学习要求") then get_faq_document(id)
+
+---
+
+## 🔄 Data Freshness
+
+- **WordPress Posts:** Live API - always current
+- **FAQ Documents:** Indexed from R2 storage
+- Total FAQ Documents: ~13 documents
+- Topics: Course info, enrollment, payment, learning paths
+
+Ready to help! What would you like to know?`
+					}]
+				};
+			}
+		);
+
+		// ============================================
+		// 🎯 ENTRY POINT TOOL - Smart Search
+		// ============================================
+
+		// 🌟 Smart unified search - Recommended first tool to use
+		this.server.tool(
+			"search_knowledge_base",
+			"🌟 **RECOMMENDED START POINT** - Intelligent search across WordPress blog posts AND FAQ documents. This is your primary tool for finding information about JustinCourse. Returns formatted results with links and IDs for deeper exploration.",
+			{
+				keywords: z.string().describe("Search keywords. Can be multi-word queries. Examples: 'cloudflare workers deployment', 'course payment methods', '如何报名课程', 'mcp server setup'"),
+				sources: z.enum(["all", "wordpress", "faq"]).optional().default("all").describe("Search scope: 'all' (default, searches both sources), 'wordpress' (blog posts only), 'faq' (FAQ documents only)"),
+				max_results: z.number().optional().default(5).describe("Max results per source (1-10). Default: 5. Use higher values for comprehensive research."),
+			},
+			async ({ keywords, sources = "all", max_results = 5 }) => {
+				try {
+					max_results = Math.min(max_results, 10);
+					let wpResults = "";
+					let faqResults = "";
+					let wpCount = 0;
+					let faqCount = 0;
+
+					// Search WordPress
+					if (sources === "all" || sources === "wordpress") {
+						const baseUrl = "https://app.justincourse.com/wp-json/wp/v2/posts";
+						const params = new URLSearchParams({
+							search: keywords,
+							per_page: String(max_results),
+							_embed: "1",
+						});
+
+						const response = await fetch(`${baseUrl}?${params.toString()}`);
+
+						if (response.ok) {
+							const posts = await response.json() as any[];
+							wpCount = posts.length;
+
+							if (posts.length > 0) {
+								wpResults = posts.map((post: any, index: number) => {
+									const excerpt = post.excerpt?.rendered?.replace(/<[^>]*>/g, "").trim() || "No excerpt";
+									const categories = post._embedded?.["wp:term"]?.[0]?.map((cat: any) => cat.name).join(", ") || "Uncategorized";
+									const tags = post._embedded?.["wp:term"]?.[1]?.map((tag: any) => tag.name).join(", ") || "No tags";
+
+									return `${index + 1}. 📄 **${post.title.rendered}**
+   🔗 Link: ${post.link}
+   📅 Published: ${new Date(post.date).toLocaleDateString()}
+   📁 Categories: ${categories}
+   🏷️  Tags: ${tags}
+   📝 ${excerpt.substring(0, 200)}${excerpt.length > 200 ? "..." : ""}`;
+								}).join("\n\n");
+							}
+						}
+					}
+
+					// Search FAQ
+					if (sources === "all" || sources === "faq") {
+						const db = drizzle(this.env.DB);
+						const searchPattern = `%${keywords}%`;
+
+						const faqDocs = await db.select()
+							.from(faqIndexTable)
+							.where(
+								or(
+									like(faqIndexTable.title, searchPattern),
+									like(faqIndexTable.description, searchPattern),
+									like(faqIndexTable.tags, searchPattern)
+								)
+							)
+							.limit(max_results)
+							.all();
+
+						faqCount = faqDocs.length;
+
+						if (faqDocs.length > 0) {
+							faqResults = faqDocs.map((doc: any, index: number) => {
+								const tags = doc.tags ? JSON.parse(doc.tags).join(", ") : "None";
+								return `${index + 1}. 📚 **${doc.title}** (ID: ${doc.id})
+   🏷️  Tags: ${tags}
+   📝 ${doc.description || "No description"}
+   💡 Use get_faq_document(${doc.id}) to read full content`;
+							}).join("\n\n");
+						}
+					}
+
+					// Combine results
+					let output = `# 🔍 Search Results for "${keywords}"\n\n`;
+
+					if (wpResults) {
+						output += `## 📰 WordPress Posts (${wpCount} results)\n\n${wpResults}\n\n`;
+					} else if (sources === "all" || sources === "wordpress") {
+						output += `## 📰 WordPress Posts\nNo results found.\n\n`;
+					}
+
+					if (faqResults) {
+						output += `## 📚 FAQ Documents (${faqCount} results)\n\n${faqResults}\n\n`;
+					} else if (sources === "all" || sources === "faq") {
+						output += `## 📚 FAQ Documents\nNo results found.\n\n`;
+					}
+
+					output += `\n---\n💡 **Next Steps:**\n`;
+					if (faqCount > 0) {
+						output += `- Use get_faq_document(id) to read full FAQ content\n`;
+					}
+					if (wpCount > 0) {
+						output += `- Click WordPress post links to read full articles\n`;
+					}
+					if (wpCount === 0 && faqCount === 0) {
+						output += `- Try different keywords or broader search terms\n`;
+						output += `- Use list_faq_documents() to browse all available FAQs\n`;
+					}
+
+					return {
+						content: [{
+							type: "text",
+							text: output,
+						}],
+					};
+				} catch (error) {
+					return {
+						content: [{
+							type: "text",
+							text: `Error searching knowledge base: ${error instanceof Error ? error.message : String(error)}`,
+						}],
+					};
+				}
+			},
+		);
 		// Simple addition tool
 		this.server.tool("add", { a: z.number(), b: z.number() }, async ({ a, b }) => ({
 			content: [{ type: "text", text: String(a + b) }],
@@ -56,13 +289,18 @@ export class MyMCP extends McpAgent<Env> {
 			},
 		);
 
-		// Search WordPress posts
+		// ============================================
+		// 📰 WORDPRESS TOOLS
+		// ============================================
+
+		// Search WordPress blog posts with rich metadata
 		this.server.tool(
 			"search_wordpress_posts",
+			"📰 Search JustinCourse blog posts about web development, Cloudflare, MCP, and programming tutorials. Returns posts with categories, tags, publish dates, and excerpts. Use when you need technical articles, tutorials, or course updates.",
 			{
-				keywords: z.string().describe("Keywords to search in posts"),
-				search_in: z.enum(["title", "content", "all"]).optional().describe("Where to search: title, content, or all"),
-				per_page: z.number().optional().default(10).describe("Number of results per page (max 100)"),
+				keywords: z.string().describe("Search keywords. Searches in post title, content, and metadata. Examples: 'cloudflare workers', 'mcp tutorial', 'next.js deployment', 'typescript basics'"),
+				search_in: z.enum(["title", "content", "all"]).optional().describe("Search scope: 'title' (titles only), 'content' (body text), 'all' (recommended - searches everything)"),
+				per_page: z.number().optional().default(10).describe("Results per page (1-100). Default: 10. WordPress may return fewer if that's all it finds."),
 			},
 			async ({ keywords, search_in = "all", per_page = 10 }) => {
 				try {
@@ -128,12 +366,17 @@ export class MyMCP extends McpAgent<Env> {
 			},
 		);
 
-		// List FAQ documents from D1 index
+		// ============================================
+		// 📚 FAQ DOCUMENT TOOLS
+		// ============================================
+
+		// Browse FAQ documents with smart filtering
 		this.server.tool(
 			"list_faq_documents",
+			"📚 Browse frequently asked questions about JustinCourse. Returns a list of FAQ documents with titles, descriptions, tags, and IDs. Use for exploring topics like enrollment, payment, course content, learning paths, and technical requirements. Supports keyword filtering across title, description, AND tags.",
 			{
-				keywords: z.string().optional().describe("Keywords to filter FAQ documents"),
-				limit: z.number().optional().default(20).describe("Maximum number of results"),
+				keywords: z.string().optional().describe("Optional filter keywords. Searches in title, description, and tags. Examples: '课程', 'payment', '报名', 'cloudflare'. Leave empty to list all FAQs."),
+				limit: z.number().optional().default(20).describe("Max results (1-50). Default: 20. Use smaller values for focused results, larger for comprehensive browsing."),
 			},
 			async ({ keywords, limit = 20 }) => {
 				try {
@@ -193,11 +436,12 @@ export class MyMCP extends McpAgent<Env> {
 			},
 		);
 
-		// Get FAQ document detail from R2
+		// Read full FAQ document content
 		this.server.tool(
 			"get_faq_document",
+			"📄 Retrieve the complete content of a specific FAQ document by its ID. Returns full Markdown content including all details, examples, and instructions. Use this after finding relevant FAQs with list_faq_documents or search_knowledge_base to get comprehensive answers.",
 			{
-				id: z.number().describe("The ID of the FAQ document from the index"),
+				id: z.number().describe("FAQ document ID. Get this from list_faq_documents or search_knowledge_base results. Example: 1, 5, 13"),
 			},
 			async ({ id }) => {
 				try {
@@ -253,97 +497,6 @@ ${content}`,
 						content: [{
 							type: "text",
 							text: `Error retrieving FAQ document: ${error instanceof Error ? error.message : String(error)}`,
-						}],
-					};
-				}
-			},
-		);
-
-		// Smart search across both WordPress and FAQ documents
-		this.server.tool(
-			"search_knowledge_base",
-			{
-				keywords: z.string().describe("Keywords to search across WordPress posts and FAQ documents"),
-				sources: z.enum(["all", "wordpress", "faq"]).optional().default("all").describe("Which sources to search"),
-			},
-			async ({ keywords, sources = "all" }) => {
-				try {
-					let wpResults = "";
-					let faqResults = "";
-
-					// Search WordPress
-					if (sources === "all" || sources === "wordpress") {
-						const baseUrl = "https://app.justincourse.com/wp-json/wp/v2/posts";
-						const params = new URLSearchParams({
-							search: keywords,
-							per_page: "5",
-							_embed: "1",
-						});
-
-						const response = await fetch(`${baseUrl}?${params.toString()}`);
-
-						if (response.ok) {
-							const posts = await response.json() as any[];
-
-							if (posts.length > 0) {
-								wpResults = posts.map((post: any) => {
-									const excerpt = post.excerpt?.rendered?.replace(/<[^>]*>/g, "").trim() || "No excerpt";
-									return `📄 ${post.title.rendered}\n   🔗 ${post.link}\n   ${excerpt.substring(0, 150)}...`;
-								}).join("\n\n");
-							}
-						}
-					}
-
-					// Search FAQ
-					if (sources === "all" || sources === "faq") {
-						const db = drizzle(this.env.DB);
-						const searchPattern = `%${keywords}%`;
-
-						const faqDocs = await db.select()
-							.from(faqIndexTable)
-							.where(
-								or(
-									like(faqIndexTable.title, searchPattern),
-									like(faqIndexTable.description, searchPattern),
-									like(faqIndexTable.tags, searchPattern)
-								)
-							)
-							.limit(5)
-							.all();
-
-						if (faqDocs.length > 0) {
-							faqResults = faqDocs.map((doc: any) => {
-								return `📚 ${doc.title} (ID: ${doc.id})\n   ${doc.description || "No description"}`;
-							}).join("\n\n");
-						}
-					}
-
-					// Combine results
-					let output = `🔍 Search results for "${keywords}":\n\n`;
-
-					if (wpResults) {
-						output += `## WordPress Posts\n\n${wpResults}\n\n`;
-					} else if (sources === "all" || sources === "wordpress") {
-						output += `## WordPress Posts\nNo results found.\n\n`;
-					}
-
-					if (faqResults) {
-						output += `## FAQ Documents\n\n${faqResults}\n\n💡 Use get_faq_document with the ID to read full content.`;
-					} else if (sources === "all" || sources === "faq") {
-						output += `## FAQ Documents\nNo results found.`;
-					}
-
-					return {
-						content: [{
-							type: "text",
-							text: output,
-						}],
-					};
-				} catch (error) {
-					return {
-						content: [{
-							type: "text",
-							text: `Error searching knowledge base: ${error instanceof Error ? error.message : String(error)}`,
 						}],
 					};
 				}
