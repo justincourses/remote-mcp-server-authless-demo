@@ -635,10 +635,12 @@ app.post("/api/faq/index", async (c) => {
 	try {
 		const db = drizzle(c.env.DB);
 		const r2 = c.env.R2_BUCKET;
-		const prefix = "course-demo/justincourse-faq/";
+		const prefix = "justincourse-faq/";
 
 		// List all markdown files in the FAQ directory
 		const listed = await r2.list({ prefix });
+
+		console.log(`[FAQ Index] Listed ${listed.objects.length} objects with prefix: ${prefix}`);
 
 		let indexed = 0;
 		let errors = [];
@@ -713,11 +715,15 @@ app.post("/api/faq/index", async (c) => {
 			}
 		}
 
+		console.log(`[FAQ Index] Completed: ${indexed}/${listed.objects.length} indexed`);
+
 		return c.json({
 			status: "success",
 			message: `Indexed ${indexed} FAQ documents`,
 			total: listed.objects.length,
 			indexed,
+			prefix,
+			files: listed.objects.map(o => o.key),
 			errors: errors.length > 0 ? errors : undefined,
 		});
 	} catch (error) {
