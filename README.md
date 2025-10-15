@@ -25,11 +25,18 @@
 - D1 数据库全文搜索
 - 获取完整文档内容
 
-### 3. MCP 工具
-- `search_knowledge_base` - 智能搜索（WordPress + FAQ）
-- `search_wordpress_posts` - WordPress 文章搜索
-- `list_faq_documents` - FAQ 文档列表
-- `get_faq_document` - 获取 FAQ 完整内容
+### 3. MCP 工具 🌟 (遵循最佳实践)
+- ℹ️ `how_to_use` - **新增**：完整使用指南和工作流推荐
+- 🌟 `search_knowledge_base` - **推荐入口**：智能搜索（WordPress + FAQ）
+- 📰 `search_wordpress_posts` - WordPress 文章搜索（含分类、标签）
+- 📚 `list_faq_documents` - FAQ 文档浏览（支持关键词过滤）
+- 📄 `get_faq_document` - 获取 FAQ 完整内容
+
+**最佳实践改进：**
+- ✅ 详细的工具描述（含 emoji 标识和使用场景）
+- ✅ 丰富的参数说明（含示例值和取值范围）
+- ✅ 智能使用建议（返回下一步操作指导）
+- ✅ 完整的使用指南工具（AI 快速上手）
 
 ### 4. REST API
 - `/api/search` - 统一搜索接口
@@ -72,12 +79,19 @@ chmod +x scripts/quick-start.sh
 
 ## 📖 文档
 
+- **[MCP 最佳实践](documents/MCP_BEST_PRACTICES.md)** - 🆕 工具优化和 AI 使用指南
 - **[完整功能文档](documents/KNOWLEDGE_BASE_FEATURES.md)** - 详细的功能说明和 API 文档
 - **[项目总结](documents/PROJECT_SUMMARY.md)** - 技术实现和架构说明
 - **[修复说明](documents/FIX_NOTES.md)** - SSE 404 问题的修复过程
 - **[FAQ 示例](documents/example-faq.md)** - Markdown 文档格式示例
 
 ## 🧪 测试
+
+### 测试 MCP 最佳实践 🆕
+```bash
+# 测试工具优化和使用指南
+./scripts/test-mcp-best-practices.sh
+```
 
 ### 测试 API
 ```bash
