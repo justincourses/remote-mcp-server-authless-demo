@@ -29,24 +29,30 @@ export class MyMCP extends McpAgent<Env> {
 						type: "text",
 						text: `# 📚 JustinCourse Knowledge Base Assistant - Usage Guide
 
+🌐 **Official Website:** https://justincourse.com
+📚 **Course Platform:** https://app.justincourse.com
+
+---
+
 ## 🎯 Available Tools & When to Use Them
 
 ### 1. 🌟 search_knowledge_base **(RECOMMENDED FIRST CHOICE)**
 **Use for:** Any question about JustinCourse, courses, or technical topics
 **Searches:** WordPress blog posts + FAQ documents simultaneously
-**Best when:** You're not sure where to look, or want comprehensive results
+**Best when:** Starting your inquiry or wanting comprehensive results
 **Example:** "How do I deploy to Cloudflare Workers?"
 
-### 2. 📰 search_wordpress_posts
-**Use for:** Finding technical tutorials, course announcements, and articles
-**Searches:** Only blog posts (https://app.justincourse.com)
-**Best when:** You need detailed tutorials or recent updates
-**Example:** "Show me articles about Next.js deployment"
+### 2. 📰 search_wordpress_posts **(DEEP DIVE INTO COURSE CONTENT)**
+**Use for:** Finding detailed course tutorials, technical articles, and announcements
+**Searches:** Only blog posts from https://app.justincourse.com
+**Returns:** Full article titles, categories, tags, publish dates, and excerpts
+**Best when:** You need in-depth technical content, step-by-step tutorials, or course details
+**Example:** "Show me all articles about Next.js deployment"
 
 ### 3. 📚 list_faq_documents
 **Use for:** Browsing frequently asked questions by topic
 **Searches:** FAQ document index (titles, descriptions, tags)
-**Best when:** Exploring topics like payment, enrollment, or prerequisites
+**Best when:** Quick answers to common questions about enrollment, payment, or prerequisites
 **Example:** Use keywords "报名" to find enrollment-related FAQs
 
 ### 4. 📄 get_faq_document
@@ -57,36 +63,62 @@ export class MyMCP extends McpAgent<Env> {
 
 ---
 
-## 💡 Recommended Workflows
+## 💡 **RECOMMENDED WORKFLOWS** (Combine Tools for Best Results!)
 
-### For General Questions:
-1. Start with **search_knowledge_base("your question")**
-2. If FAQs are found, use **get_faq_document(id)** for details
-3. If blog posts are found, click the provided links
+### 🎓 For Course-Related Questions:
+**ALWAYS combine FAQ + WordPress for complete answers!**
 
-### For Course Information:
-1. Use **list_faq_documents("课程")** to browse course FAQs
-2. Pick relevant FAQ by ID
-3. Read with **get_faq_document(id)**
+1. **First:** Check FAQ basics with **list_faq_documents("课程")**
+   - Get quick overview of course info, enrollment, payment
+2. **Then:** Search detailed content with **search_wordpress_posts("course name")**
+   - Find full course curriculum, tutorials, and syllabus
+3. **Finally:** Synthesize both sources into comprehensive answer
+4. **Always include:** Official website link https://justincourse.com
 
-### For Technical Tutorials:
-1. Use **search_wordpress_posts("technology name")**
-2. Review titles, categories, and publish dates
-3. Click blog post links for full articles
+**Example Flow:**
+\`\`\`
+User: "Tell me about the Web Course"
+→ Step 1: list_faq_documents("web course") → Get enrollment/payment info
+→ Step 2: search_wordpress_posts("web course") → Get course content details
+→ Step 3: Combine both results
+→ Step 4: Include link to https://justincourse.com for registration
+\`\`\`
+
+### 🔍 For Technical Questions:
+**Prioritize WordPress API for detailed content!**
+
+1. **First:** Use **search_wordpress_posts("technology")**
+   - WordPress contains full tutorials and course materials
+2. **Then:** Check **search_knowledge_base()** for related FAQs
+3. **Combine:** Provide tutorial links + FAQ answers
+4. **Guide:** Direct users to https://app.justincourse.com for full articles
+
+### 💰 For Enrollment/Payment Questions:
+1. **Quick Answer:** **list_faq_documents("报名")** or **("付费")**
+2. **Detailed Info:** **get_faq_document(id)** for specific FAQ
+3. **Course Details:** **search_wordpress_posts("course name")** for curriculum
+4. **Registration:** Direct to https://justincourse.com
+
+### 🆕 For "What Courses Are Available?"
+**MUST use WordPress API to get current course list!**
+
+1. **Primary:** **search_wordpress_posts("web course")** → See all course posts
+2. **Supplement:** **list_faq_documents("课程")** → Course policies
+3. **Present:** Full course list with descriptions from WordPress
+4. **Direct:** Users to https://justincourse.com for enrollment
 
 ---
 
-## 🏷️ Available Topics
+## 🏷️ Available Topics & Content Sources
 
-**WordPress Categories:**
-- Cloudflare Workers
-- Web Development
-- TypeScript / JavaScript
-- MCP (Model Context Protocol)
-- Next.js, React
-- Database (D1, R2)
+### 📰 WordPress Course Content (USE FOR DETAILED INFO):
+- **Full Course Tutorials:** Cloudflare Workers, Next.js, TypeScript, React
+- **Step-by-Step Guides:** Deployment, Authentication, API Development
+- **Course Announcements:** New courses, updates, features
+- **Technical Deep Dives:** MCP, D1, R2, Hono, Drizzle ORM
+- **Project Examples:** Real-world applications and demos
 
-**FAQ Topics:**
+### 📚 FAQ Quick Answers:
 - 课程报名 (Course Enrollment)
 - 付费方式 (Payment Methods)
 - 学习要求 (Prerequisites)
@@ -95,27 +127,69 @@ export class MyMCP extends McpAgent<Env> {
 
 ---
 
-## 💬 Example Queries
+## 💬 Example Query Patterns
 
-**Question:** "如何支付课程费用？"
-→ Use: search_knowledge_base("支付") or list_faq_documents("付费")
+### ❌ DON'T: Single source only
+\`\`\`
+User: "Tell me about courses"
+Bad: Only use list_faq_documents("课程")
+Why: Missing detailed course content from WordPress
+\`\`\`
 
-**Question:** "Show me tutorials about Cloudflare D1"
-→ Use: search_wordpress_posts("cloudflare d1")
+### ✅ DO: Combine multiple sources
+\`\`\`
+User: "Tell me about courses"
+Good Flow:
+1. list_faq_documents("课程") → Quick enrollment info
+2. search_wordpress_posts("course") → Detailed course list & content
+3. Synthesize both → Complete answer with curriculum + enrollment
+4. Include → https://justincourse.com for registration
+\`\`\`
 
-**Question:** "What are the course prerequisites?"
-→ Use: list_faq_documents("学习要求") then get_faq_document(id)
+### ✅ Sample Complete Response Pattern:
+\`\`\`
+Based on the course information I found:
+
+**Course Overview** (from WordPress):
+- Web Course: Covers Cloudflare Workers, Next.js, TypeScript...
+- [Link to full course article]
+
+**Enrollment Information** (from FAQ):
+- Registration process: [details]
+- Payment methods: [details]
+
+**Next Steps:**
+→ Explore full course curriculum: https://app.justincourse.com
+→ Register for courses: https://justincourse.com
+\`\`\`
+
+---
+
+## 🌐 Important URLs to Always Reference
+
+- **Official Website (Registration):** https://justincourse.com
+- **Course Platform (Learning):** https://app.justincourse.com
+- **WordPress API (Content Source):** https://app.justincourse.com/wp-json/wp/v2
 
 ---
 
 ## 🔄 Data Freshness
 
-- **WordPress Posts:** Live API - always current
-- **FAQ Documents:** Indexed from R2 storage
-- Total FAQ Documents: ~13 documents
-- Topics: Course info, enrollment, payment, learning paths
+- **WordPress Posts:** ✅ Live API - Real-time course content
+- **FAQ Documents:** 📦 Indexed from R2 - Updated regularly
+- **Total FAQs:** ~13 documents covering common questions
 
-Ready to help! What would you like to know?`
+---
+
+## 🎯 Key Principles
+
+1. **Always Combine Sources:** FAQ for quick facts + WordPress for detailed content
+2. **Prioritize WordPress for Course Details:** Contains full curriculum and tutorials
+3. **Always Include Official Links:** Guide users to https://justincourse.com
+4. **Synthesize Information:** Don't just list results, combine them into useful answers
+5. **Be Helpful:** Provide next steps and clear guidance
+
+Ready to help! What would you like to know about JustinCourse?`
 					}]
 				};
 			}
@@ -208,28 +282,43 @@ Ready to help! What would you like to know?`
 					let output = `# 🔍 Search Results for "${keywords}"\n\n`;
 
 					if (wpResults) {
-						output += `## 📰 WordPress Posts (${wpCount} results)\n\n${wpResults}\n\n`;
+						output += `## 📰 WordPress Course Content & Tutorials (${wpCount} results)\n\n${wpResults}\n\n`;
 					} else if (sources === "all" || sources === "wordpress") {
-						output += `## 📰 WordPress Posts\nNo results found.\n\n`;
+						output += `## 📰 WordPress Course Content & Tutorials\nNo results found.\n\n`;
 					}
 
 					if (faqResults) {
-						output += `## 📚 FAQ Documents (${faqCount} results)\n\n${faqResults}\n\n`;
+						output += `## 📚 FAQ Quick Answers (${faqCount} results)\n\n${faqResults}\n\n`;
 					} else if (sources === "all" || sources === "faq") {
-						output += `## 📚 FAQ Documents\nNo results found.\n\n`;
+						output += `## 📚 FAQ Quick Answers\nNo results found.\n\n`;
 					}
 
-					output += `\n---\n💡 **Next Steps:**\n`;
-					if (faqCount > 0) {
-						output += `- Use get_faq_document(id) to read full FAQ content\n`;
+					output += `\n---\n💡 **Recommended Next Steps:**\n`;
+
+					// Give specific guidance based on what was found
+					if (wpCount > 0 && faqCount > 0) {
+						output += `\n**✅ BEST APPROACH - Combine Both Sources:**\n`;
+						output += `1. Read FAQ documents with get_faq_document(id) for quick answers\n`;
+						output += `2. Visit WordPress article links above for detailed tutorials\n`;
+						output += `3. Synthesize both sources into a comprehensive answer\n`;
+					} else if (wpCount > 0) {
+						output += `- 📖 Click WordPress article links above for detailed content\n`;
+						output += `- 🔍 Try search_wordpress_posts() with more specific keywords for additional articles\n`;
+						output += `- 📚 Check list_faq_documents() for related quick answers\n`;
+					} else if (faqCount > 0) {
+						output += `- 📄 Use get_faq_document(id) to read full FAQ content\n`;
+						output += `- 📰 Try search_wordpress_posts("${keywords}") for detailed tutorials\n`;
+						output += `- 🎯 Combine FAQ + WordPress content for complete answers\n`;
+					} else {
+						output += `- 🔄 Try different keywords or broader search terms\n`;
+						output += `- 📚 Browse all FAQs: list_faq_documents()\n`;
+						output += `- 📰 Search WordPress: search_wordpress_posts("${keywords}")\n`;
 					}
-					if (wpCount > 0) {
-						output += `- Click WordPress post links to read full articles\n`;
-					}
-					if (wpCount === 0 && faqCount === 0) {
-						output += `- Try different keywords or broader search terms\n`;
-						output += `- Use list_faq_documents() to browse all available FAQs\n`;
-					}
+
+					output += `\n**🌐 Official Resources:**\n`;
+					output += `- 🏠 Main Website: https://justincourse.com\n`;
+					output += `- 📚 Course Platform: https://app.justincourse.com\n`;
+					output += `- 💡 For enrollment, course details, and registration → Visit https://justincourse.com\n`;
 
 					return {
 						content: [{
@@ -290,15 +379,15 @@ Ready to help! What would you like to know?`
 		);
 
 		// ============================================
-		// 📰 WORDPRESS TOOLS
+		// 📰 WORDPRESS TOOLS - Detailed Course Content
 		// ============================================
 
 		// Search WordPress blog posts with rich metadata
 		this.server.tool(
 			"search_wordpress_posts",
-			"📰 Search JustinCourse blog posts about web development, Cloudflare, MCP, and programming tutorials. Returns posts with categories, tags, publish dates, and excerpts. Use when you need technical articles, tutorials, or course updates.",
+			"📰 **PRIMARY SOURCE FOR COURSE DETAILS** - Search WordPress for detailed course curriculum, full tutorials, technical articles, and course announcements. WordPress contains the MOST COMPREHENSIVE course information including syllabi, lesson content, project examples, and technical deep-dives. ALWAYS use this when users ask about course content, what they'll learn, or need detailed technical tutorials. Returns posts with full metadata: categories, tags, publish dates, and rich excerpts.",
 			{
-				keywords: z.string().describe("Search keywords. Searches in post title, content, and metadata. Examples: 'cloudflare workers', 'mcp tutorial', 'next.js deployment', 'typescript basics'"),
+				keywords: z.string().describe("Search keywords. Searches in post title, content, and metadata. For courses use: 'web course', 'course 课程', 'cloudflare workers course'. For tech: 'typescript tutorial', 'next.js deployment', 'mcp server setup'. Supports both English and Chinese."),
 				search_in: z.enum(["title", "content", "all"]).optional().describe("Search scope: 'title' (titles only), 'content' (body text), 'all' (recommended - searches everything)"),
 				per_page: z.number().optional().default(10).describe("Results per page (1-100). Default: 10. WordPress may return fewer if that's all it finds."),
 			},
@@ -334,25 +423,49 @@ Ready to help! What would you like to know?`
 					}
 
 					// Format the results
-					const formattedResults = posts.map((post: any) => {
+					const formattedResults = posts.map((post: any, index: number) => {
 						const excerpt = post.excerpt?.rendered?.replace(/<[^>]*>/g, "").trim() || "No excerpt";
 						const categories = post._embedded?.["wp:term"]?.[0]?.map((cat: any) => cat.name).join(", ") || "Uncategorized";
 						const tags = post._embedded?.["wp:term"]?.[1]?.map((tag: any) => tag.name).join(", ") || "No tags";
 
-						return `
-📄 **${post.title.rendered}**
-🔗 Link: ${post.link}
-📅 Published: ${new Date(post.date).toLocaleDateString()}
-📁 Categories: ${categories}
-🏷️  Tags: ${tags}
-📝 Excerpt: ${excerpt.substring(0, 200)}${excerpt.length > 200 ? "..." : ""}
-`;
-					}).join("\n---\n");
+						return `${index + 1}. 📄 **${post.title.rendered}**
+   🔗 Full Article: ${post.link}
+   📅 Published: ${new Date(post.date).toLocaleDateString()}
+   📁 Categories: ${categories}
+   🏷️  Tags: ${tags}
+   📝 ${excerpt.substring(0, 250)}${excerpt.length > 250 ? "..." : ""}`;
+					}).join("\n\n");
+
+					const hasCourseMaterial = posts.some((post: any) =>
+						post.title.rendered.toLowerCase().includes('course') ||
+						post.title.rendered.includes('课程') ||
+						post.title.rendered.toLowerCase().includes('web course')
+					);
+
+					let output = `# 📰 WordPress Search Results: "${keywords}"\n\n`;
+					output += `Found ${posts.length} detailed article(s):\n\n`;
+					output += formattedResults;
+					output += `\n\n---\n`;
+					output += `💡 **How to Use These Results:**\n`;
+					output += `- Click the "Full Article" links above to read complete tutorials\n`;
+					output += `- These articles contain detailed course content, step-by-step guides, and examples\n`;
+
+					if (hasCourseMaterial) {
+						output += `- 🎓 Course-related posts found! Visit articles for full curriculum details\n`;
+					}
+
+					output += `\n**💬 For Best Answers:**\n`;
+					output += `1. Read the WordPress articles above for detailed content\n`;
+					output += `2. Use list_faq_documents() to find related quick answers\n`;
+					output += `3. Combine both sources to provide comprehensive responses\n`;
+					output += `\n**🌐 Official Resources:**\n`;
+					output += `- 🏠 Course Registration: https://justincourse.com\n`;
+					output += `- 📚 All Articles: https://app.justincourse.com\n`;
 
 					return {
 						content: [{
 							type: "text",
-							text: `Found ${posts.length} post(s) matching "${keywords}":\n\n${formattedResults}`,
+							text: output,
 						}],
 					};
 				} catch (error) {
@@ -398,31 +511,45 @@ Ready to help! What would you like to know?`
 					const results = await query.limit(limit).all();
 
 					if (results.length === 0) {
+						const suggestion = keywords
+							? `\n\n💡 Try: search_wordpress_posts("${keywords}") for detailed course content`
+							: `\n\n💡 Try: search_wordpress_posts("course") to browse all available courses`;
+
 						return {
 							content: [{
 								type: "text",
-								text: keywords
+								text: (keywords
 									? `No FAQ documents found matching "${keywords}"`
-									: "No FAQ documents found in the database",
+									: "No FAQ documents found in the database") + suggestion,
 							}],
 						};
 					}
 
-					const formattedResults = results.map((doc: any) => {
+					const formattedResults = results.map((doc: any, index: number) => {
 						const tags = doc.tags ? JSON.parse(doc.tags).join(", ") : "No tags";
-						return `
-📚 **${doc.title}**
-📄 File: ${doc.fileName}
-🏷️  Tags: ${tags}
-📝 Description: ${doc.description || "No description"}
-🆔 ID: ${doc.id}
-`;
-					}).join("\n---\n");
+						return `${index + 1}. 📚 **${doc.title}**
+   📄 File: ${doc.fileName}
+   🏷️  Tags: ${tags}
+   📝 ${doc.description || "No description"}
+   🆔 ID: ${doc.id} → Use get_faq_document(${doc.id}) to read full content`;
+					}).join("\n\n");
+
+					let output = `# 📚 FAQ Documents${keywords ? ` - "${keywords}"` : ""}\n\n`;
+					output += `Found ${results.length} FAQ(s):\n\n`;
+					output += formattedResults;
+					output += `\n\n---\n`;
+					output += `💡 **Recommended Next Steps:**\n`;
+					output += `1. **Read FAQs:** Use get_faq_document(id) for full answers\n`;
+					output += `2. **Get Detailed Content:** Use search_wordpress_posts("${keywords || 'topic'}") for in-depth tutorials\n`;
+					output += `3. **Combine Sources:** Merge FAQ quick answers + WordPress detailed content for complete responses\n`;
+					output += `\n**🌐 Need More Info?**\n`;
+					output += `- � Browse all articles: https://app.justincourse.com\n`;
+					output += `- 🏠 Course registration: https://justincourse.com\n`;
 
 					return {
 						content: [{
 							type: "text",
-							text: `Found ${results.length} FAQ document(s)${keywords ? ` matching "${keywords}"` : ""}:\n\n${formattedResults}\n\n💡 Use get_faq_document with the ID to read the full content.`,
+							text: output,
 						}],
 					};
 				} catch (error) {
