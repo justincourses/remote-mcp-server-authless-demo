@@ -72,10 +72,17 @@ remote-mcp-server-authless-demo/
 │   ├── 0000_*.sql           # 初始迁移
 │   ├── 0001_*.sql           # Conversation 表
 │   └── 0002_*.sql           # FAQ 索引表
-├── test-knowledge-base.sh    # 功能测试脚本
-├── example-faq.md           # FAQ 文档示例
-├── KNOWLEDGE_BASE_FEATURES.md # 完整功能文档
-└── FIX_NOTES.md             # 404 问题修复说明
+├── scripts/
+│   ├── test-knowledge-base.sh    # 功能测试脚本
+│   ├── quick-start.sh            # 快速开始脚本
+│   └── test-mcp*.sh              # MCP 测试脚本
+├── documents/
+│   ├── KNOWLEDGE_BASE_FEATURES.md # 完整功能文档
+│   ├── PROJECT_SUMMARY.md         # 本文档
+│   ├── FIX_NOTES.md              # 404 问题修复说明
+│   ├── CHECKLIST.md              # 完成检查清单
+│   └── example-faq.md            # FAQ 文档示例
+└── README.md                # 项目主文档
 ```
 
 ## 🚀 部署状态
@@ -94,7 +101,7 @@ remote-mcp-server-authless-demo/
 首先，上传 Markdown 文件到 R2：
 ```bash
 # 使用 wrangler 上传
-wrangler r2 object put course-demo/justincourse-faq/example.md --file=example-faq.md
+wrangler r2 object put course-demo/justincourse-faq/example.md --file=documents/example-faq.md
 ```
 
 然后索引：
@@ -202,10 +209,12 @@ tags: [标签1, 标签2, 标签3]  # 便于搜索
 
 ## 📝 文档清单
 
-- ✅ `KNOWLEDGE_BASE_FEATURES.md` - 完整功能文档
-- ✅ `FIX_NOTES.md` - 404 问题修复说明
-- ✅ `example-faq.md` - FAQ 文档示例
-- ✅ `test-knowledge-base.sh` - 自动化测试脚本
+- ✅ `documents/KNOWLEDGE_BASE_FEATURES.md` - 完整功能文档
+- ✅ `documents/FIX_NOTES.md` - 404 问题修复说明
+- ✅ `documents/example-faq.md` - FAQ 文档示例
+- ✅ `documents/CHECKLIST.md` - 完成检查清单
+- ✅ `scripts/test-knowledge-base.sh` - 自动化测试脚本
+- ✅ `scripts/quick-start.sh` - 快速开始脚本
 - ✅ 本文档 - 项目总结
 
 ## 🎓 学习要点

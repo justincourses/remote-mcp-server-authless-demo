@@ -66,23 +66,23 @@ npm run deploy
 ### 方法 3: 使用快速开始脚本
 
 ```bash
-chmod +x quick-start.sh
-./quick-start.sh
+chmod +x scripts/quick-start.sh
+./scripts/quick-start.sh
 ```
 
 ## 📖 文档
 
-- **[完整功能文档](KNOWLEDGE_BASE_FEATURES.md)** - 详细的功能说明和 API 文档
-- **[项目总结](PROJECT_SUMMARY.md)** - 技术实现和架构说明
-- **[修复说明](FIX_NOTES.md)** - SSE 404 问题的修复过程
-- **[FAQ 示例](example-faq.md)** - Markdown 文档格式示例
+- **[完整功能文档](documents/KNOWLEDGE_BASE_FEATURES.md)** - 详细的功能说明和 API 文档
+- **[项目总结](documents/PROJECT_SUMMARY.md)** - 技术实现和架构说明
+- **[修复说明](documents/FIX_NOTES.md)** - SSE 404 问题的修复过程
+- **[FAQ 示例](documents/example-faq.md)** - Markdown 文档格式示例
 
 ## 🧪 测试
 
 ### 测试 API
 ```bash
 # 运行完整测试
-./test-knowledge-base.sh
+./scripts/test-knowledge-base.sh
 
 # 或手动测试
 curl "https://hono-mcp-demo.justincourse.site/api/search?keywords=mcp"

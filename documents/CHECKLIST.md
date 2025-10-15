@@ -69,17 +69,17 @@
 - [x] WordPress 搜索测试（通过）
 - [x] FAQ 索引测试（通过）
 - [x] 统一搜索测试（通过）
-- [x] 测试脚本创建 (`test-knowledge-base.sh`)
+- [x] 测试脚本创建 (`scripts/test-knowledge-base.sh`)
 - [x] MCP 工具可访问性确认
 
 ### 文档
-- [x] 完整功能文档 (`KNOWLEDGE_BASE_FEATURES.md`)
-- [x] 项目总结文档 (`PROJECT_SUMMARY.md`)
+- [x] 完整功能文档 (`documents/KNOWLEDGE_BASE_FEATURES.md`)
+- [x] 项目总结文档 (`documents/PROJECT_SUMMARY.md`)
 - [x] README 更新（新版本）
-- [x] FAQ 文档示例 (`example-faq.md`)
-- [x] 快速开始脚本 (`quick-start.sh`)
-- [x] 修复说明保留 (`FIX_NOTES.md`)
-- [x] 本检查清单
+- [x] FAQ 文档示例 (`documents/example-faq.md`)
+- [x] 快速开始脚本 (`scripts/quick-start.sh`)
+- [x] 修复说明保留 (`documents/FIX_NOTES.md`)
+- [x] 本检查清单 (`documents/CHECKLIST.md`)
 
 ## 代码质量 ✓
 
@@ -182,17 +182,17 @@
 
 ### 文档
 - [x] `README.md` - 项目介绍（全新）
-- [x] `KNOWLEDGE_BASE_FEATURES.md` - 功能文档
-- [x] `PROJECT_SUMMARY.md` - 项目总结
-- [x] `FIX_NOTES.md` - 修复说明
-- [x] `CHECKLIST.md` - 本检查清单
+- [x] `documents/KNOWLEDGE_BASE_FEATURES.md` - 功能文档
+- [x] `documents/PROJECT_SUMMARY.md` - 项目总结
+- [x] `documents/FIX_NOTES.md` - 修复说明
+- [x] `documents/CHECKLIST.md` - 本检查清单
 
 ### 示例和工具
-- [x] `example-faq.md` - FAQ 文档示例
-- [x] `test-knowledge-base.sh` - 测试脚本
-- [x] `quick-start.sh` - 快速开始脚本
-- [x] `test-mcp.sh` - MCP 基础测试
-- [x] `test-mcp-detailed.sh` - MCP 详细测试
+- [x] `documents/example-faq.md` - FAQ 文档示例
+- [x] `scripts/test-knowledge-base.sh` - 测试脚本
+- [x] `scripts/quick-start.sh` - 快速开始脚本
+- [x] `scripts/test-mcp.sh` - MCP 基础测试
+- [x] `scripts/test-mcp-detailed.sh` - MCP 详细测试
 
 ## 下一步行动 📋
 
